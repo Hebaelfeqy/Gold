@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مجوهرات الذهب</title>
+<meta name="description" content="أسعار الذهب محدثة يومياً — عقود، خواتم، أطقم وأساور">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="demo" class="demo-banner" hidden>وضع تجريبي — البيانات محفوظة في هذا المتصفح فقط</div>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand" id="shopName">مجوهرات <span>الذهب</span></div>
+    <div class="ticker" id="ticker"><span class="chip">جاري تحميل سعر الذهب…</span></div>
+    <div class="price-note" id="priceNote"></div>
+  </div>
+</header>
+
+<nav class="filters">
+  <div class="wrap">
+    <div class="pills" id="catPills"></div>
+    <input class="field" id="q" type="search" placeholder="بحث بالاسم أو الكود">
+    <select class="field" id="karat"><option value="">كل العيارات</option></select>
+    <select class="field" id="sort">
+      <option value="new">الأحدث</option>
+      <option value="low">السعر: من الأقل</option>
+      <option value="high">السعر: من الأعلى</option>
+      <option value="light">الوزن: من الأخف</option>
+      <option value="heavy">الوزن: من الأثقل</option>
+    </select>
+    <input class="field" id="maxPrice" type="number" inputmode="numeric" placeholder="أقصى سعر (ر.ق)">
+    <label class="pill" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="inStock" checked> المتوفر فقط</label>
+    <button class="pill" id="favOnly">♡ المفضلة</button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div class="grid" id="grid"></div>
+</main>
+
+<div class="sharebar" id="sharebar">
+  <span id="favCount"></span>
+  <button class="btn ghost sm" id="clearFav" style="color:#fff;border-color:#555">مسح</button>
+  <a class="btn wa" id="sendWa" target="_blank" rel="noopener">إرسال عبر واتساب</a>
+</div>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/core.js"></script>
+<script>
+const { db, CATEGORIES, KARATS, getGoldPrice, gramPrice, finalPrice, fmt, qr, esc } = Gold;
+const $ = (id) => document.getElementById(id);
+const state = { items: [], settings: {}, price: {}, cat: "", favOnly: false,
+  favs: new Set((() => { try { return JSON.parse(localStorage.getItem("gold_favs")) || []; } catch { return []; } })()) };
+
+function saveFavs() { try { localStorage.setItem("gold_favs", JSON.stringify([...state.favs])); } catch {} }
+const priceOf = (it) => finalPrice(it, state.price.price24, state.settings);
+const itemLink = (it) => location.origin + location.pathname + "#item=" + it.id;
+
+async function init() {
+  if (db.demo) $("demo").hidden = false;
+  try {
+    state.settings = await db.getSettings();
+    if (state.settings.shop_name) { $("shopName").textContent = state.settings.shop_name; document.title = state.settings.shop_name; }
+    state.price = await getGoldPrice(state.settings);
+    state.items = (await db.listItems()).filter((i) => i.visible !== false);
+  } catch (e) {
+    console.error(e);
+    $("grid").innerHTML = `<div class="empty">تعذر تحميل البيانات، حاول مرة أخرى</div>`;
+    return;
+  }
+  renderTicker();
+  renderFilters();
+  render();
+  openFromHash();
+}
+
+function renderTicker() {
+  const p = state.price.price24;
+  if (!p) { $("ticker").innerHTML = `<span class="chip">سعر الذهب غير متوفر حالياً</span>`; return; }
+  $("ticker").innerHTML = KARATS.map((k) => `<span class="chip">عيار ${k}: <b>${fmt(gramPrice(p, k), 2)}</b> ر.ق/جم</span>`).join("");
+  const d = new Date().toLocaleDateString("ar-QA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  $("priceNote").textContent = `الأسعار محدثة حسب سعر الذهب اليوم — ${d}`;
+}
+
+function renderFilters() {
+  const cats = [["", "الكل"], ...Object.entries(CATEGORIES).filter(([k]) => state.items.some((i) => i.category === k))];
+  $("catPills").innerHTML = cats.map(([k, v]) => `<button class="pill ${state.cat === k ? "on" : ""}" data-cat="${k}">${v}</button>`).join("");
+  $("karat").innerHTML = `<option value="">كل العيارات</option>` + KARATS.map((k) => `<option value="${k}">عيار ${k}</option>`).join("");
+}
+
+function filtered() {
+  const q = $("q").value.trim().toLowerCase();
+  const k = $("karat").value, max = Number($("maxPrice").value) || Infinity, inStock = $("inStock").checked;
+  let list = state.items.filter((i) =>
+    (!state.cat || i.category === state.cat) &&
+    (!k || String(i.karat) === k) &&
+    (!inStock || i.stock > 0) &&
+    (!state.favOnly || state.favs.has(i.id)) &&
+    (!q || (i.name + " " + (i.code || "")).toLowerCase().includes(q)) &&
+    (priceOf(i) ?? 0) <= max);
+  const s = $("sort").value;
+  const by = { low: (a, b) => priceOf(a) - priceOf(b), high: (a, b) => priceOf(b) - priceOf(a),
+    light: (a, b) => a.grams - b.grams, heavy: (a, b) => b.grams - a.grams }[s];
+  if (by) list = [...list].sort(by);
+  return list;
+}
+
+function render() {
+  const list = filtered();
+  $("grid").innerHTML = list.length ? list.map((i) => `
+    <article class="card" data-id="${i.id}">
+      ${i.photos?.[0] ? `<img class="ph" loading="lazy" src="${esc(i.photos[0])}" alt="${esc(i.name)}">` : `<div class="noph">◇</div>`}
+      ${i.stock <= 0 ? `<span class="badge out">غير متوفر</span>` : i.photos?.length > 1 ? `<span class="badge">${i.photos.length} صور</span>` : ""}
+      <button class="heart ${state.favs.has(i.id) ? "on" : ""}" data-fav="${i.id}" aria-label="أضف للمفضلة">${state.favs.has(i.id) ? "♥" : "♡"}</button>
+      <div class="body">
+        <div class="name">${esc(i.name)}</div>
+        <div class="meta">${CATEGORIES[i.category] || ""} · عيار ${i.karat} · ${fmt(i.grams, 2)} جم</div>
+        <div class="price">${qr(priceOf(i))}</div>
+      </div>
+    </article>`).join("") : `<div class="empty">لا توجد قطع مطابقة</div>`;
+  renderShareBar();
+}
+
+function waUrl(text) {
+  const n = (state.settings.whatsapp || "").replace(/\D/g, "");
+  return (n ? `https://wa.me/${n}` : "https://wa.me/") + "?text=" + encodeURIComponent(text);
+}
+function itemLine(i, n) {
+  return `${n ? n + ". " : ""}${i.name}${i.code ? " (" + i.code + ")" : ""}\n   عيار ${i.karat} · ${fmt(i.grams, 2)} جم · ${qr(priceOf(i))}\n   ${itemLink(i)}`;
+}
+
+function renderShareBar() {
+  const favs = state.items.filter((i) => state.favs.has(i.id));
+  $("sharebar").classList.toggle("show", favs.length > 0);
+  $("favCount").textContent = `${favs.length} قطعة في المفضلة`;
+  $("favOnly").classList.toggle("on", state.favOnly);
+  const text = `السلام عليكم، أعجبتني هذه القطع:\n\n${favs.map((i, n) => itemLine(i, n + 1)).join("\n\n")}`;
+  $("sendWa").href = waUrl(text);
+}
+
+function openItem(id) {
+  const i = state.items.find((x) => x.id === id);
+  if (!i) return;
+  history.replaceState(null, "", "#item=" + id);
+  const photos = i.photos || [];
+  const p24 = state.price.price24;
+  $("sheet").innerHTML = `
+    <button class="x" data-close>✕</button>
+    ${photos.length ? `<div class="gallery" id="gal">${photos.map((u) => `<img src="${esc(u)}" alt="${esc(i.name)}">`).join("")}</div>
+      ${photos.length > 1 ? `<div class="thumbs">${photos.map((u, n) => `<img src="${esc(u)}" data-go="${n}" alt="">`).join("")}</div>` : ""}`
+      : `<div class="noph" style="aspect-ratio:2;display:grid;place-items:center;font-size:3rem;color:var(--gold);background:var(--gold-soft)">◇</div>`}
+    <div class="detail">
+      <h2>${esc(i.name)}</h2>
+      <div class="muted">${CATEGORIES[i.category] || ""}${i.code ? " · كود " + esc(i.code) : ""}</div>
+      ${i.description ? `<p>${esc(i.description)}</p>` : ""}
+      <div class="specs">
+        <div class="spec"><small>العيار</small><b>${i.karat}</b></div>
+        <div class="spec"><small>الوزن</small><b>${fmt(i.grams, 2)} جم</b></div>
+        <div class="spec"><small>سعر الجرام اليوم</small><b>${p24 ? fmt(gramPrice(p24, i.karat), 2) + " ر.ق" : "—"}</b></div>
+        <div class="spec"><small>التوفر</small><b class="${i.stock > 0 ? "" : "low"}">${i.stock > 0 ? "متوفر" : "غير متوفر"}</b></div>
+      </div>
+      <div class="bigprice">${qr(priceOf(i))}</div>
+      <div class="muted" style="margin-bottom:14px">السعر يتغير يومياً حسب سعر الذهب</div>
+      <div class="row">
+        <a class="btn wa" target="_blank" rel="noopener" href="${waUrl("السلام عليكم، أستفسر عن هذه القطعة:\n\n" + itemLine(i))}">استفسار عبر واتساب</a>
+        <button class="btn ghost" data-fav="${i.id}">${state.favs.has(i.id) ? "♥ في المفضلة" : "♡ أضف للمفضلة"}</button>
+        ${photos.length && navigator.canShare ? `<button class="btn ghost" data-share="${i.id}">مشاركة الصور</button>` : ""}
+      </div>
+    </div>`;
+  $("modal").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+function closeModal() {
+  $("modal").classList.remove("show");
+  document.body.style.overflow = "";
+  history.replaceState(null, "", location.pathname + location.search);
+}
+function openFromHash() {
+  const m = location.hash.match(/item=([\w-]+)/);
+  if (m) openItem(m[1]);
+}
+
+async function sharePhotos(id) {
+  const i = state.items.find((x) => x.id === id);
+  const text = itemLine(i);
+  try {
+    const files = await Promise.all(i.photos.map(async (u, n) => {
+      const b = await (await fetch(u)).blob();
+      return new File([b], `${i.code || "item"}-${n + 1}.jpg`, { type: b.type || "image/jpeg" });
+    }));
+    if (navigator.canShare({ files })) return await navigator.share({ files, text });
+  } catch (e) { if (e.name === "AbortError") return; }
+  try { await navigator.share({ text, url: itemLink(i) }); } catch {}
+}
+
+function toggleFav(id) {
+  state.favs.has(id) ? state.favs.delete(id) : state.favs.add(id);
+  saveFavs();
+  render();
+  if ($("modal").classList.contains("show")) openItem(id);
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-fav],[data-cat],[data-close],[data-share],[data-go],.card");
+  if (!t) { if (e.target === $("modal")) closeModal(); return; }
+  if (t.dataset.fav) { e.stopPropagation(); return toggleFav(t.dataset.fav); }
+  if (t.dataset.cat !== undefined) { state.cat = t.dataset.cat; renderFilters(); return render(); }
+  if (t.dataset.close !== undefined) return closeModal();
+  if (t.dataset.share) return sharePhotos(t.dataset.share);
+  if (t.dataset.go) { const g = $("gal"); return g.scrollTo({ left: -g.clientWidth * t.dataset.go, behavior: "smooth" }); }
+  if (t.classList.contains("card")) openItem(t.dataset.id);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+["q", "karat", "sort", "maxPrice", "inStock"].forEach((id) => $(id).addEventListener("input", render));
+$("favOnly").onclick = () => { state.favOnly = !state.favOnly; render(); };
+$("clearFav").onclick = () => { state.favs.clear(); state.favOnly = false; saveFavs(); render(); };
+window.addEventListener("hashchange", openFromHash);
+
+init();
+</script>
+</body>
+</html>

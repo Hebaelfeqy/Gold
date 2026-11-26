@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>لوحة التحكم</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="demo" class="demo-banner" hidden>وضع تجريبي — البيانات محفوظة في هذا المتصفح فقط. أضف بيانات Supabase في config.js للتشغيل الفعلي.</div>
+
+<!-- login -->
+<section id="loginView" class="wrap" hidden>
+  <div class="panel login">
+    <h3>تسجيل دخول المسؤول</h3>
+    <form id="loginForm" class="form">
+      <label class="full">البريد الإلكتروني<input class="field" name="email" type="email" required></label>
+      <label class="full">كلمة المرور<input class="field" name="password" type="password" required></label>
+      <button class="btn full" type="submit">دخول</button>
+      <div class="muted full" id="loginErr"></div>
+    </form>
+  </div>
+</section>
+
+<!-- app -->
+<section id="appView" hidden>
+  <header class="top">
+    <div class="wrap admin-top">
+      <div class="brand">لوحة <span>التحكم</span></div>
+      <div class="row">
+        <a class="btn ghost sm" href="./" target="_blank" style="color:#fff;border-color:#666">عرض الموقع</a>
+        <button class="btn ghost sm" id="logout" style="color:#fff;border-color:#666">خروج</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- today's price -->
+    <div class="panel">
+      <h3>سعر الذهب اليوم</h3>
+      <div class="stats" id="priceStats"></div>
+      <p class="muted" id="priceSrc"></p>
+    </div>
+
+    <!-- stock summary -->
+    <div class="panel">
+      <h3>ملخص المخزون</h3>
+      <div class="stats" id="stockStats"></div>
+    </div>
+
+    <!-- item form -->
+    <div class="panel" id="formPanel">
+      <h3 id="formTitle">إضافة قطعة جديدة</h3>
+      <form id="itemForm" class="form">
+        <input type="hidden" name="id">
+        <label>اسم القطعة<input class="field" name="name" required placeholder="مثال: عقد فراشة"></label>
+        <label>الكود<input class="field" name="code" placeholder="N-101"></label>
+        <label>النوع<select class="field" name="category" id="fCat"></select></label>
+        <label>العيار<select class="field" name="karat" id="fKarat"></select></label>
+        <label>الوزن (جرام)<input class="field" name="grams" type="number" step="0.001" min="0.001" required inputmode="decimal"></label>
+        <label>الكمية في المخزون<input class="field" name="stock" type="number" min="0" value="1" required inputmode="numeric"></label>
+        <label>مصنعية خاصة (ر.ق)<input class="field" name="extra_fee" type="number" step="0.01" min="0" placeholder="فارغ = الافتراضي"></label>
+        <label style="flex-direction:row;align-items:center;gap:8px;margin-top:22px"><input type="checkbox" name="visible" checked> ظاهرة للعملاء</label>
+        <label class="full">وصف (اختياري)<textarea class="field" name="description" rows="2"></textarea></label>
+        <div class="full">
+          <div class="muted" style="margin-bottom:6px">الصور</div>
+          <div class="photos" id="photos"></div>
+          <input type="file" id="fileIn" accept="image/*" multiple hidden>
+        </div>
+        <div class="calc full" id="calc"></div>
+        <div class="row full">
+          <button class="btn" type="submit" id="saveBtn">حفظ</button>
+          <button class="btn ghost" type="button" id="cancelEdit" hidden>إلغاء التعديل</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- items table -->
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px">
+        <h3 style="margin:0">القطع (<span id="count">0</span>)</h3>
+        <input class="field" id="search" type="search" placeholder="بحث…" style="max-width:220px">
+      </div>
+      <div class="tablewrap">
+        <table class="table">
+          <thead><tr><th></th><th>القطعة</th><th>العيار</th><th>الوزن</th><th>سعر الذهب</th><th>السعر النهائي</th><th>المخزون</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- settings -->
+    <div class="panel">
+      <h3>الإعدادات</h3>
+      <form id="settingsForm" class="form">
+        <label>اسم المحل<input class="field" name="shop_name"></label>
+        <label>رقم واتساب (مع رمز الدولة)<input class="field" name="whatsapp" placeholder="974XXXXXXXX" inputmode="tel"></label>
+        <label>المبلغ المضاف لكل قطعة (ر.ق)<input class="field" name="markup" type="number" step="0.01" min="0" required></label>
+        <label>سعر يدوي لجرام عيار 24 (ر.ق)<input class="field" name="manual_price_24k" type="number" step="0.01" min="0"></label>
+        <label class="full" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="use_manual"> استخدام السعر اليدوي بدل السعر العالمي التلقائي</label>
+        <div class="full"><button class="btn" type="submit">حفظ الإعدادات</button></div>
+      </form>
+    </div>
+  </main>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/core.js"></script>
+<script>
+const { db, CATEGORIES, KARATS, getGoldPrice, gramPrice, finalPrice, fmt, qr, esc } = Gold;
+const $ = (id) => document.getElementById(id);
+const S = { items: [], settings: {}, price: {}, photos: [] };
+const form = $("itemForm");
+
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => (t.style.display = "none"), 2500); }
+
+async function boot() {
+  if (db.demo) $("demo").hidden = false;
+  const s = await db.session();
+  $("loginView").hidden = !!s;
+  $("appView").hidden = !s;
+  if (s) await load();
+}
+
+$("loginForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  try { await db.signIn(f.get("email"), f.get("password")); boot(); }
+  catch (err) { $("loginErr").textContent = "بيانات الدخول غير صحيحة"; }
+};
+$("logout").onclick = async () => { await db.signOut(); boot(); };
+
+async function load() {
+  $("fCat").innerHTML = Object.entries(CATEGORIES).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+  $("fKarat").innerHTML = KARATS.map((k) => `<option value="${k}" ${k === 21 ? "selected" : ""}>${k}</option>`).join("");
+  S.settings = await db.getSettings();
+  S.price = await getGoldPrice(S.settings);
+  // Save today's live price once a day as a fallback for customers if the price API is down.
+  if (S.price.source === "live") {
+    const last = S.settings.last_price_at && new Date(S.settings.last_price_at).toDateString();
+    if (last !== new Date().toDateString()) {
+      db.saveSettings({ last_price_24k: S.price.price24.toFixed(2), last_price_at: S.price.at }).catch(console.error);
+    }
+  }
+  fillSettings();
+  S.items = await db.listItems();
+  renderAll();
+}
+
+function renderAll() { renderPrice(); renderStock(); renderRows(); renderCalc(); }
+
+function renderPrice() {
+  const p = S.price.price24;
+  $("priceStats").innerHTML = p ? KARATS.map((k) => `<div class="stat"><small>عيار ${k} / جرام</small><b>${fmt(gramPrice(p, k), 2)} ر.ق</b></div>`).join("")
+    + `<div class="stat"><small>المبلغ المضاف لكل قطعة</small><b>${fmt(S.settings.markup)} ر.ق</b></div>`
+    : `<div class="stat"><small>تعذر جلب السعر</small><b>أدخل سعراً يدوياً من الإعدادات</b></div>`;
+  $("priceSrc").textContent = { live: "المصدر: السعر العالمي المباشر (محوّل إلى الريال القطري)", manual: "المصدر: سعر يدوي من الإعدادات",
+    saved: "المصدر: آخر سعر محفوظ (تعذر الاتصال بخدمة الأسعار)", none: "" }[S.price.source];
+}
+
+function renderStock() {
+  const pcs = S.items.reduce((a, i) => a + Number(i.stock), 0);
+  const grams = S.items.reduce((a, i) => a + i.grams * i.stock, 0);
+  const value = S.items.reduce((a, i) => a + (finalPrice(i, S.price.price24, S.settings) || 0) * i.stock, 0);
+  const out = S.items.filter((i) => i.stock <= 0).length;
+  $("stockStats").innerHTML = `
+    <div class="stat"><small>عدد الموديلات</small><b>${S.items.length}</b></div>
+    <div class="stat"><small>إجمالي القطع</small><b>${fmt(pcs)}</b></div>
+    <div class="stat"><small>إجمالي الوزن</small><b>${fmt(grams, 2)} جم</b></div>
+    <div class="stat"><small>قيمة المخزون اليوم</small><b>${qr(value)}</b></div>
+    <div class="stat"><small>نفد من المخزون</small><b class="${out ? "low" : ""}">${out}</b></div>`;
+}
+
+function renderRows() {
+  const q = $("search").value.trim().toLowerCase();
+  const list = S.items.filter((i) => !q || (i.name + " " + (i.code || "")).toLowerCase().includes(q));
+  $("count").textContent = S.items.length;
+  $("rows").innerHTML = list.map((i) => {
+    const p = S.price.price24;
+    const gold = p ? i.grams * gramPrice(p, i.karat) : null;
+    return `<tr>
+      <td>${i.photos?.[0] ? `<img src="${esc(i.photos[0])}" alt="">` : ""}</td>
+      <td><b>${esc(i.name)}</b>${i.visible === false ? ` <span class="muted">(مخفية)</span>` : ""}<br><span class="muted">${CATEGORIES[i.category]}${i.code ? " · " + esc(i.code) : ""}</span></td>
+      <td class="num">${i.karat}</td>
+      <td class="num">${fmt(i.grams, 2)} جم</td>
+      <td class="num">${qr(gold)}</td>
+      <td class="num"><b>${qr(finalPrice(i, p, S.settings))}</b></td>
+      <td class="num"><span class="stock">
+        <button data-dec="${i.id}">−</button><span class="${i.stock <= 0 ? "low" : ""}">${i.stock}</span><button data-inc="${i.id}">+</button>
+      </span></td>
+      <td class="num"><button class="btn ghost sm" data-edit="${i.id}">تعديل</button> <button class="btn danger sm" data-del="${i.id}">حذف</button></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="8" class="muted" style="text-align:center;padding:30px">لا توجد قطع بعد — أضف أول قطعة من الأعلى</td></tr>`;
+}
+
+// ---- form ----
+function formItem() {
+  const f = new FormData(form);
+  return {
+    id: f.get("id") || undefined,
+    name: f.get("name").trim(),
+    code: f.get("code").trim() || null,
+    category: f.get("category"),
+    karat: Number(f.get("karat")),
+    grams: Number(f.get("grams")),
+    stock: Number(f.get("stock")),
+    extra_fee: f.get("extra_fee") === "" ? null : Number(f.get("extra_fee")),
+    description: f.get("description").trim() || null,
+    visible: f.get("visible") === "on",
+    photos: S.photos,
+  };
+}
+
+function renderCalc() {
+  const it = formItem(), p = S.price.price24;
+  if (!p || !it.grams) { $("calc").innerHTML = `<span class="muted">أدخل الوزن لعرض السعر المحسوب</span>`; return; }
+  const gp = gramPrice(p, it.karat), gold = it.grams * gp;
+  const fee = it.extra_fee ?? Number(S.settings.markup);
+  $("calc").innerHTML = `${fmt(it.grams, 3)} جم × ${fmt(gp, 2)} ر.ق (عيار ${it.karat}) = ${fmt(gold, 2)} + ${fmt(fee)} مصنعية = <b>${qr(Math.round(gold + fee))}</b>`;
+}
+form.addEventListener("input", renderCalc);
+
+function renderPhotos() {
+  $("photos").innerHTML = S.photos.map((u, n) => `<div class="p"><img src="${esc(u)}" alt=""><button type="button" data-rmph="${n}">×</button></div>`).join("")
+    + `<label class="addph" for="fileIn" title="إضافة صور">+</label>`;
+}
+$("fileIn").onchange = async (e) => {
+  const files = [...e.target.files];
+  e.target.value = "";
+  $("saveBtn").disabled = true;
+  toast("جاري رفع الصور…");
+  try { for (const f of files) { S.photos.push(await db.uploadPhoto(f)); renderPhotos(); } toast("تم رفع الصور"); }
+  catch (err) { console.error(err); toast("فشل رفع الصورة"); }
+  $("saveBtn").disabled = false;
+};
+
+function resetForm() {
+  form.reset();
+  form.elements.id.value = "";
+  form.elements.karat.value = "21";
+  S.photos = [];
+  renderPhotos();
+  renderCalc();
+  $("formTitle").textContent = "إضافة قطعة جديدة";
+  $("cancelEdit").hidden = true;
+}
+
+function editItem(id) {
+  const i = S.items.find((x) => x.id === id);
+  for (const k of ["id", "name", "code", "category", "karat", "grams", "stock", "extra_fee", "description"]) form.elements[k].value = i[k] ?? "";
+  form.elements.visible.checked = i.visible !== false;
+  S.photos = [...(i.photos || [])];
+  renderPhotos(); renderCalc();
+  $("formTitle").textContent = "تعديل: " + i.name;
+  $("cancelEdit").hidden = false;
+  $("formPanel").scrollIntoView({ behavior: "smooth" });
+}
+
+form.onsubmit = async (e) => {
+  e.preventDefault();
+  $("saveBtn").disabled = true;
+  try {
+    await db.saveItem(formItem());
+    toast("تم الحفظ");
+    resetForm();
+    S.items = await db.listItems();
+    renderAll();
+  } catch (err) { console.error(err); toast("فشل الحفظ: " + (err.message || "")); }
+  $("saveBtn").disabled = false;
+};
+$("cancelEdit").onclick = resetForm;
+$("search").oninput = renderRows;
+
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("[data-edit],[data-del],[data-inc],[data-dec],[data-rmph]");
+  if (!t) return;
+  if (t.dataset.rmph) { S.photos.splice(Number(t.dataset.rmph), 1); return renderPhotos(); }
+  if (t.dataset.edit) return editItem(t.dataset.edit);
+  if (t.dataset.del) {
+    const i = S.items.find((x) => x.id === t.dataset.del);
+    if (!confirm(`حذف "${i.name}"؟`)) return;
+    await db.deleteItem(i.id);
+  } else {
+    const id = t.dataset.inc || t.dataset.dec;
+    const i = S.items.find((x) => x.id === id);
+    const stock = Math.max(0, i.stock + (t.dataset.inc ? 1 : -1));
+    await db.saveItem({ id, stock });
+  }
+  S.items = await db.listItems();
+  renderAll();
+});
+
+// ---- settings ----
+function fillSettings() {
+  const f = $("settingsForm");
+  for (const k of ["shop_name", "whatsapp", "markup", "manual_price_24k"]) f[k].value = S.settings[k] ?? "";
+  f.use_manual.checked = !!S.settings.use_manual;
+}
+$("settingsForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const patch = {
+    shop_name: f.get("shop_name").trim() || null,
+    whatsapp: f.get("whatsapp").replace(/\D/g, "") || null,
+    markup: Number(f.get("markup")),
+    manual_price_24k: f.get("manual_price_24k") === "" ? null : Number(f.get("manual_price_24k")),
+    use_manual: f.get("use_manual") === "on",
+  };
+  if (patch.use_manual && !patch.manual_price_24k) return toast("أدخل السعر اليدوي أولاً");
+  try {
+    await db.saveSettings(patch);
+    S.settings = { ...S.settings, ...patch };
+    S.price = await getGoldPrice(S.settings);
+    renderAll();
+    toast("تم حفظ الإعدادات");
+  } catch (err) { toast("فشل الحفظ"); }
+};
+
+renderPhotos();
+boot();
+</script>
+</body>
+</html>
