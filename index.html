@@ -61,7 +61,7 @@ const state = { items: [], settings: {}, price: {}, cat: "", favOnly: false,
 
 function saveFavs() { try { localStorage.setItem("gold_favs", JSON.stringify([...state.favs])); } catch {} }
 const priceOf = (it) => finalPrice(it, state.price.price24, state.settings);
-const itemLink = (it) => location.origin + location.pathname + "#item=" + it.id;
+const itemLink = (it) => location.origin + location.pathname + "#item-" + it.id;
 
 async function init() {
   if (db.demo) $("demo").hidden = false;
@@ -148,7 +148,7 @@ function renderShareBar() {
 function openItem(id) {
   const i = state.items.find((x) => x.id === id);
   if (!i) return;
-  history.replaceState(null, "", "#item=" + id);
+  history.replaceState(null, "", "#item-" + id);
   const photos = i.photos || [];
   const p24 = state.price.price24;
   $("sheet").innerHTML = `
@@ -183,7 +183,7 @@ function closeModal() {
   history.replaceState(null, "", location.pathname + location.search);
 }
 function openFromHash() {
-  const m = location.hash.match(/item=([\w-]+)/);
+  const m = location.hash.match(/item[-=]([\w-]+)/);
   if (m) openItem(m[1]);
 }
 

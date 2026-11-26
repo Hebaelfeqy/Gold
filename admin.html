@@ -283,9 +283,12 @@ document.addEventListener("click", async (e) => {
   if (t.dataset.rmph) { S.photos.splice(Number(t.dataset.rmph), 1); return renderPhotos(); }
   if (t.dataset.edit) return editItem(t.dataset.edit);
   if (t.dataset.del) {
-    const i = S.items.find((x) => x.id === t.dataset.del);
-    if (!confirm(`حذف "${i.name}"؟`)) return;
-    await db.deleteItem(i.id);
+    if (!t.dataset.armed) {
+      t.dataset.armed = "1"; t.textContent = "تأكيد الحذف؟";
+      setTimeout(() => { delete t.dataset.armed; t.textContent = "حذف"; }, 3000);
+      return;
+    }
+    await db.deleteItem(t.dataset.del);
   } else {
     const id = t.dataset.inc || t.dataset.dec;
     const i = S.items.find((x) => x.id === id);
