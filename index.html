@@ -15,14 +15,12 @@
 <header class="top">
   <div class="wrap">
     <div class="brand" id="shopName">فوري <span>الذهب</span></div>
-    <div class="price-note">الأسعار محدثة يومياً</div>
   </div>
 </header>
 
 <nav class="filters">
   <div class="wrap">
     <div class="pills" id="catPills"></div>
-    <input class="field" id="q" type="search" placeholder="بحث بالاسم أو الكود">
     <select class="field" id="karat"><option value="">كل العيارات</option></select>
     <select class="field" id="sort">
       <option value="new">الأحدث</option>
@@ -32,8 +30,6 @@
       <option value="heavy">الوزن: من الأثقل</option>
     </select>
     <input class="field" id="maxPrice" type="number" inputmode="numeric" placeholder="أقصى سعر (ر.ق)">
-    <label class="pill" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="inStock" checked> المتوفر فقط</label>
-    <button class="pill" id="favOnly">♡ المفضلة</button>
   </div>
 </nav>
 
@@ -56,7 +52,7 @@
 <script>
 const { db, CATEGORIES, KARATS, getGoldPrice, finalPrice, fmt, qr, esc } = Gold;
 const $ = (id) => document.getElementById(id);
-const state = { items: [], settings: {}, price: {}, cat: "", favOnly: false,
+const state = { items: [], settings: {}, price: {}, cat: "",
   favs: new Set((() => { try { return JSON.parse(localStorage.getItem("gold_favs")) || []; } catch { return []; } })()) };
 
 function saveFavs() { try { localStorage.setItem("gold_favs", JSON.stringify([...state.favs])); } catch {} }
@@ -87,14 +83,11 @@ function renderFilters() {
 }
 
 function filtered() {
-  const q = $("q").value.trim().toLowerCase();
-  const k = $("karat").value, max = Number($("maxPrice").value) || Infinity, inStock = $("inStock").checked;
+  const k = $("karat").value, max = Number($("maxPrice").value) || Infinity;
   let list = state.items.filter((i) =>
     (!state.cat || i.category === state.cat) &&
     (!k || String(i.karat) === k) &&
-    (!inStock || i.stock > 0) &&
-    (!state.favOnly || state.favs.has(i.id)) &&
-    (!q || (i.name + " " + (i.code || "")).toLowerCase().includes(q)) &&
+    i.stock > 0 &&
     (priceOf(i) ?? 0) <= max);
   const s = $("sort").value;
   const by = { low: (a, b) => priceOf(a) - priceOf(b), high: (a, b) => priceOf(b) - priceOf(a),
@@ -131,7 +124,6 @@ function renderShareBar() {
   const favs = state.items.filter((i) => state.favs.has(i.id));
   $("sharebar").classList.toggle("show", favs.length > 0);
   $("favCount").textContent = `${favs.length} قطعة في المفضلة`;
-  $("favOnly").classList.toggle("on", state.favOnly);
   const text = `السلام عليكم، أعجبتني هذه القطع:\n\n${favs.map((i, n) => itemLine(i, n + 1)).join("\n\n")}`;
   $("sendWa").href = waUrl(text);
 }
@@ -207,9 +199,8 @@ document.addEventListener("click", (e) => {
   if (t.classList.contains("card")) openItem(t.dataset.id);
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
-["q", "karat", "sort", "maxPrice", "inStock"].forEach((id) => $(id).addEventListener("input", render));
-$("favOnly").onclick = () => { state.favOnly = !state.favOnly; render(); };
-$("clearFav").onclick = () => { state.favs.clear(); state.favOnly = false; saveFavs(); render(); };
+["karat", "sort", "maxPrice"].forEach((id) => $(id).addEventListener("input", render));
+$("clearFav").onclick = () => { state.favs.clear(); saveFavs(); render(); };
 window.addEventListener("hashchange", openFromHash);
 
 init();
