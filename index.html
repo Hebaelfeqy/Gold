@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>مجوهرات الذهب</title>
+<title>فوري الذهب</title>
 <meta name="description" content="أسعار الذهب محدثة يومياً — عقود، خواتم، أطقم وأساور">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -14,9 +14,8 @@
 
 <header class="top">
   <div class="wrap">
-    <div class="brand" id="shopName">مجوهرات <span>الذهب</span></div>
-    <div class="ticker" id="ticker"><span class="chip">جاري تحميل سعر الذهب…</span></div>
-    <div class="price-note" id="priceNote"></div>
+    <div class="brand" id="shopName">فوري <span>الذهب</span></div>
+    <div class="price-note">الأسعار محدثة يومياً</div>
   </div>
 </header>
 
@@ -55,20 +54,20 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/core.js"></script>
 <script>
-const { db, CATEGORIES, KARATS, getGoldPrice, gramPrice, finalPrice, fmt, qr, esc } = Gold;
+const { db, CATEGORIES, KARATS, getGoldPrice, finalPrice, fmt, qr, esc } = Gold;
 const $ = (id) => document.getElementById(id);
 const state = { items: [], settings: {}, price: {}, cat: "", favOnly: false,
   favs: new Set((() => { try { return JSON.parse(localStorage.getItem("gold_favs")) || []; } catch { return []; } })()) };
 
 function saveFavs() { try { localStorage.setItem("gold_favs", JSON.stringify([...state.favs])); } catch {} }
-const priceOf = (it) => finalPrice(it, state.price.price24, state.settings);
+const priceOf = (it) => finalPrice(it, state.price, state.settings);
 const itemLink = (it) => location.origin + location.pathname + "#item-" + it.id;
 
 async function init() {
   if (db.demo) $("demo").hidden = false;
   try {
     state.settings = await db.getSettings();
-    if (state.settings.shop_name) { $("shopName").textContent = state.settings.shop_name; document.title = state.settings.shop_name; }
+    if (state.settings.shop_name && state.settings.shop_name !== "فوري الذهب") { $("shopName").textContent = state.settings.shop_name; document.title = state.settings.shop_name; }
     state.price = await getGoldPrice(state.settings);
     state.items = (await db.listItems()).filter((i) => i.visible !== false);
   } catch (e) {
@@ -76,18 +75,9 @@ async function init() {
     $("grid").innerHTML = `<div class="empty">تعذر تحميل البيانات، حاول مرة أخرى</div>`;
     return;
   }
-  renderTicker();
   renderFilters();
   render();
   openFromHash();
-}
-
-function renderTicker() {
-  const p = state.price.price24;
-  if (!p) { $("ticker").innerHTML = `<span class="chip">سعر الذهب غير متوفر حالياً</span>`; return; }
-  $("ticker").innerHTML = KARATS.map((k) => `<span class="chip">عيار ${k}: <b>${fmt(gramPrice(p, k), 2)}</b> ر.ق/جم</span>`).join("");
-  const d = new Date().toLocaleDateString("ar-QA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  $("priceNote").textContent = `الأسعار محدثة حسب سعر الذهب اليوم — ${d}`;
 }
 
 function renderFilters() {
@@ -151,7 +141,6 @@ function openItem(id) {
   if (!i) return;
   history.replaceState(null, "", "#item-" + id);
   const photos = i.photos || [];
-  const p24 = state.price.price24;
   $("sheet").innerHTML = `
     <button class="x" data-close>✕</button>
     ${photos.length ? `<div class="gallery" id="gal">${photos.map((u) => `<img src="${esc(u)}" alt="${esc(i.name)}">`).join("")}</div>
@@ -164,7 +153,6 @@ function openItem(id) {
       <div class="specs">
         <div class="spec"><small>العيار</small><b>${i.karat}</b></div>
         <div class="spec"><small>الوزن</small><b>${fmt(i.grams, 2)} جم</b></div>
-        <div class="spec"><small>سعر الجرام اليوم</small><b>${p24 ? fmt(gramPrice(p24, i.karat), 2) + " ر.ق" : "—"}</b></div>
         <div class="spec"><small>التوفر</small><b class="${i.stock > 0 ? "" : "low"}">${i.stock > 0 ? "متوفر" : "غير متوفر"}</b></div>
       </div>
       <div class="bigprice">${qr(priceOf(i))}</div>

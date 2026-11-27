@@ -40,8 +40,24 @@
   <main class="wrap">
     <!-- today's price -->
     <div class="panel">
-      <h3>سعر الذهب اليوم</h3>
-      <div class="stats" id="priceStats"></div>
+      <h3>طريقة التسعير</h3>
+      <form id="priceForm" class="form">
+        <div class="full modes">
+          <label class="mode"><input type="radio" name="price_mode" value="daily"><span><b>حسب سعر الذهب اليوم</b><small>سعر الجرام يتحدث تلقائياً من الإنترنت كل يوم، ثم تُضاف العمولة لكل قطعة</small></span></label>
+          <label class="mode"><input type="radio" name="price_mode" value="fixed"><span><b>سعر ثابت</b><small>أنت تحدد سعر الجرام لكل عيار، ولا تُضاف عمولة</small></span></label>
+        </div>
+        <div class="full form" id="dailyBox">
+          <label>العمولة لكل قطعة (ر.ق)<input class="field" name="markup" type="number" step="0.01" min="0" inputmode="decimal"></label>
+        </div>
+        <div class="full form" id="fixedBox">
+          <label>سعر جرام عيار 24 (ر.ق)<input class="field" name="fixed_24" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label>سعر جرام عيار 22 (ر.ق)<input class="field" name="fixed_22" type="number" step="0.01" min="0" inputmode="decimal" placeholder="تلقائي من عيار 24"></label>
+          <label>سعر جرام عيار 21 (ر.ق)<input class="field" name="fixed_21" type="number" step="0.01" min="0" inputmode="decimal" placeholder="تلقائي من عيار 24"></label>
+          <label>سعر جرام عيار 18 (ر.ق)<input class="field" name="fixed_18" type="number" step="0.01" min="0" inputmode="decimal" placeholder="تلقائي من عيار 24"></label>
+        </div>
+        <div class="full"><button class="btn" type="submit">حفظ طريقة التسعير</button></div>
+      </form>
+      <div class="stats" id="priceStats" style="margin-top:14px"></div>
       <p class="muted" id="priceSrc"></p>
     </div>
 
@@ -62,7 +78,7 @@
         <label>العيار<select class="field" name="karat" id="fKarat"></select></label>
         <label>الوزن (جرام)<input class="field" name="grams" type="number" step="0.001" min="0.001" required inputmode="decimal"></label>
         <label>الكمية في المخزون<input class="field" name="stock" type="number" min="0" value="1" required inputmode="numeric"></label>
-        <label>مصنعية خاصة (ر.ق)<input class="field" name="extra_fee" type="number" step="0.01" min="0" placeholder="فارغ = الافتراضي"></label>
+        <label>عمولة خاصة لهذه القطعة (ر.ق)<input class="field" name="extra_fee" type="number" step="0.01" min="0" placeholder="فارغ = العمولة العامة"></label>
         <label style="flex-direction:row;align-items:center;gap:8px;margin-top:22px"><input type="checkbox" name="visible" checked> ظاهرة للعملاء</label>
         <label class="full">وصف (اختياري)<textarea class="field" name="description" rows="2"></textarea></label>
         <div class="full">
@@ -98,9 +114,6 @@
       <form id="settingsForm" class="form">
         <label>اسم المحل<input class="field" name="shop_name"></label>
         <label>رقم واتساب (مع رمز الدولة)<input class="field" name="whatsapp" placeholder="974XXXXXXXX" inputmode="tel"></label>
-        <label>المبلغ المضاف لكل قطعة (ر.ق)<input class="field" name="markup" type="number" step="0.01" min="0" required></label>
-        <label>سعر يدوي لجرام عيار 24 (ر.ق)<input class="field" name="manual_price_24k" type="number" step="0.01" min="0"></label>
-        <label class="full" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="use_manual"> استخدام السعر اليدوي بدل السعر العالمي التلقائي</label>
         <div class="full"><button class="btn" type="submit">حفظ الإعدادات</button></div>
       </form>
     </div>
@@ -113,7 +126,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/core.js"></script>
 <script>
-const { db, CATEGORIES, KARATS, getGoldPrice, gramPrice, finalPrice, fmt, qr, esc } = Gold;
+const { db, CATEGORIES, KARATS, getGoldPrice, itemFee, finalPrice, fmt, qr, esc } = Gold;
 const $ = (id) => document.getElementById(id);
 const S = { items: [], settings: {}, price: {}, photos: [] };
 const form = $("itemForm");
@@ -156,18 +169,18 @@ async function load() {
 function renderAll() { renderPrice(); renderStock(); renderRows(); renderCalc(); }
 
 function renderPrice() {
-  const p = S.price.price24;
-  $("priceStats").innerHTML = p ? KARATS.map((k) => `<div class="stat"><small>عيار ${k} / جرام</small><b>${fmt(gramPrice(p, k), 2)} ر.ق</b></div>`).join("")
-    + `<div class="stat"><small>المبلغ المضاف لكل قطعة</small><b>${fmt(S.settings.markup)} ر.ق</b></div>`
-    : `<div class="stat"><small>تعذر جلب السعر</small><b>أدخل سعراً يدوياً من الإعدادات</b></div>`;
-  $("priceSrc").textContent = { live: "المصدر: السعر العالمي المباشر (محوّل إلى الريال القطري)", manual: "المصدر: سعر يدوي من الإعدادات",
+  const P = S.price;
+  $("priceStats").innerHTML = KARATS.some((k) => P.gram[k]) ? KARATS.map((k) => `<div class="stat"><small>عيار ${k} / جرام</small><b>${P.gram[k] ? fmt(P.gram[k], 2) + " ر.ق" : "—"}</b></div>`).join("")
+    + (P.mode === "daily" ? `<div class="stat"><small>العمولة لكل قطعة</small><b>${fmt(S.settings.markup)} ر.ق</b></div>` : "")
+    : `<div class="stat"><small>${P.mode === "fixed" ? "لم يتم إدخال السعر الثابت" : "تعذر جلب سعر الذهب"}</small><b>${P.mode === "fixed" ? "أدخل سعر الجرام أعلاه" : "جرّب لاحقاً أو استخدم السعر الثابت"}</b></div>`;
+  $("priceSrc").textContent = { live: "سعر الذهب العالمي اليوم مباشرة من الإنترنت، محوّل إلى الريال القطري", fixed: "سعر ثابت تحدده أنت",
     saved: "المصدر: آخر سعر محفوظ (تعذر الاتصال بخدمة الأسعار)", none: "" }[S.price.source];
 }
 
 function renderStock() {
   const pcs = S.items.reduce((a, i) => a + Number(i.stock), 0);
   const grams = S.items.reduce((a, i) => a + i.grams * i.stock, 0);
-  const value = S.items.reduce((a, i) => a + (finalPrice(i, S.price.price24, S.settings) || 0) * i.stock, 0);
+  const value = S.items.reduce((a, i) => a + (finalPrice(i, S.price, S.settings) || 0) * i.stock, 0);
   const out = S.items.filter((i) => i.stock <= 0).length;
   $("stockStats").innerHTML = `
     <div class="stat"><small>عدد الموديلات</small><b>${S.items.length}</b></div>
@@ -182,15 +195,15 @@ function renderRows() {
   const list = S.items.filter((i) => !q || (i.name + " " + (i.code || "")).toLowerCase().includes(q));
   $("count").textContent = S.items.length;
   $("rows").innerHTML = list.map((i) => {
-    const p = S.price.price24;
-    const gold = p ? i.grams * gramPrice(p, i.karat) : null;
+    const g = S.price.gram[i.karat];
+    const gold = g ? i.grams * g : null;
     return `<tr>
       <td>${i.photos?.[0] ? `<img src="${esc(i.photos[0])}" alt="">` : ""}</td>
       <td><b>${esc(i.name)}</b>${i.visible === false ? ` <span class="muted">(مخفية)</span>` : ""}<br><span class="muted">${CATEGORIES[i.category]}${i.code ? " · " + esc(i.code) : ""}</span></td>
       <td class="num">${i.karat}</td>
       <td class="num">${fmt(i.grams, 2)} جم</td>
       <td class="num">${qr(gold)}</td>
-      <td class="num"><b>${qr(finalPrice(i, p, S.settings))}</b></td>
+      <td class="num"><b>${qr(finalPrice(i, S.price, S.settings))}</b></td>
       <td class="num"><span class="stock">
         <button data-dec="${i.id}">−</button><span class="${i.stock <= 0 ? "low" : ""}">${i.stock}</span><button data-inc="${i.id}">+</button>
       </span></td>
@@ -218,11 +231,11 @@ function formItem() {
 }
 
 function renderCalc() {
-  const it = formItem(), p = S.price.price24;
-  if (!p || !it.grams) { $("calc").innerHTML = `<span class="muted">أدخل الوزن لعرض السعر المحسوب</span>`; return; }
-  const gp = gramPrice(p, it.karat), gold = it.grams * gp;
-  const fee = it.extra_fee ?? Number(S.settings.markup);
-  $("calc").innerHTML = `${fmt(it.grams, 3)} جم × ${fmt(gp, 2)} ر.ق (عيار ${it.karat}) = ${fmt(gold, 2)} + ${fmt(fee)} مصنعية = <b>${qr(Math.round(gold + fee))}</b>`;
+  const it = formItem(), gp = S.price.gram[it.karat];
+  if (!gp || !it.grams) { $("calc").innerHTML = `<span class="muted">${gp ? "أدخل الوزن لعرض السعر المحسوب" : "سعر الذهب غير متوفر حالياً"}</span>`; return; }
+  const gold = it.grams * gp, fee = itemFee(it, S.price, S.settings);
+  $("calc").innerHTML = `${fmt(it.grams, 3)} جم × ${fmt(gp, 2)} ر.ق (عيار ${it.karat}) = ${fmt(gold, 2)}`
+    + (S.price.mode === "daily" ? ` + ${fmt(fee)} عمولة` : "") + ` = <b>${qr(Math.round(gold + fee))}</b>`;
 }
 form.addEventListener("input", renderCalc);
 
@@ -302,8 +315,11 @@ document.addEventListener("click", async (e) => {
 // ---- settings ----
 function fillSettings() {
   const f = $("settingsForm");
-  for (const k of ["shop_name", "whatsapp", "markup", "manual_price_24k"]) f[k].value = S.settings[k] ?? "";
-  f.use_manual.checked = !!S.settings.use_manual;
+  for (const k of ["shop_name", "whatsapp"]) f.elements[k].value = S.settings[k] ?? "";
+  const pf = $("priceForm").elements;
+  for (const k of ["markup", "fixed_24", "fixed_22", "fixed_21", "fixed_18"]) pf[k].value = S.settings[k] ?? "";
+  pf.price_mode.value = S.settings.price_mode || "daily";
+  showModeBoxes();
 }
 $("settingsForm").onsubmit = async (e) => {
   e.preventDefault();
@@ -311,11 +327,7 @@ $("settingsForm").onsubmit = async (e) => {
   const patch = {
     shop_name: f.get("shop_name").trim() || null,
     whatsapp: f.get("whatsapp").replace(/\D/g, "") || null,
-    markup: Number(f.get("markup")),
-    manual_price_24k: f.get("manual_price_24k") === "" ? null : Number(f.get("manual_price_24k")),
-    use_manual: f.get("use_manual") === "on",
   };
-  if (patch.use_manual && !patch.manual_price_24k) return toast("أدخل السعر اليدوي أولاً");
   try {
     await db.saveSettings(patch);
     S.settings = { ...S.settings, ...patch };
@@ -323,6 +335,29 @@ $("settingsForm").onsubmit = async (e) => {
     renderAll();
     toast("تم حفظ الإعدادات");
   } catch (err) { toast("فشل الحفظ"); }
+};
+
+function showModeBoxes() {
+  const m = $("priceForm").elements.price_mode.value;
+  $("dailyBox").hidden = m !== "daily";
+  $("fixedBox").hidden = m !== "fixed";
+}
+$("priceForm").addEventListener("change", showModeBoxes);
+$("priceForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const num = (k) => (f.get(k) === "" ? null : Number(f.get(k)));
+  const patch = { price_mode: f.get("price_mode"), markup: num("markup") ?? 0,
+    fixed_24: num("fixed_24"), fixed_22: num("fixed_22"), fixed_21: num("fixed_21"), fixed_18: num("fixed_18") };
+  if (patch.price_mode === "fixed" && !(patch.fixed_24 || patch.fixed_21 || patch.fixed_22 || patch.fixed_18))
+    return toast("أدخل سعر الجرام أولاً");
+  try {
+    await db.saveSettings(patch);
+    S.settings = { ...S.settings, ...patch };
+    S.price = await getGoldPrice(S.settings);
+    renderAll();
+    toast("تم حفظ طريقة التسعير");
+  } catch (err) { console.error(err); toast("فشل الحفظ"); }
 };
 
 renderPhotos();

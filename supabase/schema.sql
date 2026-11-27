@@ -17,13 +17,16 @@ create table if not exists public.items (
 
 create table if not exists public.settings (
   id int primary key default 1 check (id = 1),
-  markup numeric(10,2) not null default 500,        -- added to every piece (QR)
-  use_manual boolean not null default false,
-  manual_price_24k numeric(10,2),                   -- QR per gram, 24K
+  price_mode text not null default 'daily' check (price_mode in ('daily','fixed')),
+  markup numeric(10,2) not null default 500,        -- commission added per piece in 'daily' mode (QR)
+  fixed_24 numeric(10,2),                           -- 'fixed' mode: QR per gram, set by admin
+  fixed_22 numeric(10,2),
+  fixed_21 numeric(10,2),
+  fixed_18 numeric(10,2),
   last_price_24k numeric(10,2),                     -- last auto price saved (fallback)
   last_price_at timestamptz,
   whatsapp text,                                    -- e.g. 97455555555
-  shop_name text default 'مجوهرات الذهب'
+  shop_name text default 'فوري الذهب'
 );
 insert into public.settings (id) values (1) on conflict do nothing;
 

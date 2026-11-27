@@ -16,8 +16,8 @@
   const KARATS = [24, 22, 21, 18];
 
   const DEFAULT_SETTINGS = {
-    markup: 500, use_manual: false, manual_price_24k: null,
-    last_price_24k: null, last_price_at: null, whatsapp: "", shop_name: "مجوهرات الذهب",
+    price_mode: "daily", markup: 500, fixed_24: null, fixed_22: null, fixed_21: null, fixed_18: null,
+    last_price_24k: null, last_price_at: null, whatsapp: "", shop_name: "فوري الذهب",
   };
 
   // ---------- demo (localStorage) backend ----------
@@ -117,27 +117,38 @@
     return (usdOz * (CFG.USD_TO_QAR || 3.64)) / OUNCE_GRAMS;
   }
 
+  // Returns { mode, price24, gram: {24,22,21,18}, source, at }
+  // daily: live world price (fallback: last saved price), commission added per piece.
+  // fixed: admin-set gram prices, no commission.
   async function getGoldPrice(settings) {
-    if (settings.use_manual && settings.manual_price_24k) {
-      return { price24: Number(settings.manual_price_24k), source: "manual", at: null };
+    if (settings.price_mode === "fixed") {
+      const gram = {};
+      const base = Number(settings.fixed_24) || null;
+      for (const k of KARATS) gram[k] = Number(settings["fixed_" + k]) || (base ? base * k / 24 : null);
+      return { mode: "fixed", price24: gram[24], gram, source: "fixed", at: null };
     }
+    let price24 = null, source = "none", at = null;
     try {
-      const price24 = await fetchSpot24();
-      return { price24, source: "live", at: new Date().toISOString() };
+      price24 = await fetchSpot24(); source = "live"; at = new Date().toISOString();
     } catch (e) {
-      if (settings.last_price_24k) {
-        return { price24: Number(settings.last_price_24k), source: "saved", at: settings.last_price_at };
-      }
-      return { price24: null, source: "none", at: null };
+      if (settings.last_price_24k) { price24 = Number(settings.last_price_24k); source = "saved"; at = settings.last_price_at; }
     }
+    const gram = {};
+    for (const k of KARATS) gram[k] = price24 ? price24 * k / 24 : null;
+    return { mode: "daily", price24, gram, source, at };
   }
 
-  function gramPrice(price24, karat) { return price24 * (karat / 24); }
+  const gramPrice = (price, karat) => price.gram[karat];
 
-  function finalPrice(item, price24, settings) {
-    if (!price24) return null;
-    const fee = item.extra_fee != null && item.extra_fee !== "" ? Number(item.extra_fee) : Number(settings.markup || 0);
-    return Math.round(Number(item.grams) * gramPrice(price24, item.karat) + fee);
+  function itemFee(item, price, settings) {
+    if (price.mode === "fixed") return 0;
+    return item.extra_fee != null && item.extra_fee !== "" ? Number(item.extra_fee) : Number(settings.markup || 0);
+  }
+
+  function finalPrice(item, price, settings) {
+    const g = price.gram[item.karat];
+    if (!g) return null;
+    return Math.round(Number(item.grams) * g + itemFee(item, price, settings));
   }
 
   const fmt = (n, d = 0) =>
@@ -148,5 +159,5 @@
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  window.Gold = { db, CATEGORIES, KARATS, getGoldPrice, gramPrice, finalPrice, fmt, qr, esc };
+  window.Gold = { db, CATEGORIES, KARATS, getGoldPrice, gramPrice, itemFee, finalPrice, fmt, qr, esc };
 })();
