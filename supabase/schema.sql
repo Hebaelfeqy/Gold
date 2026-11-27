@@ -4,7 +4,7 @@ create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),
   code text,
   name text not null,
-  category text not null check (category in ('necklace','ring','set','bracelet','earrings','other')),
+  category text not null check (category in ('necklace','chain','ring','set','bracelet','earrings','other')),
   karat int not null check (karat in (18,21,22,24)),
   grams numeric(10,3) not null check (grams > 0),
   extra_fee numeric(10,2),            -- null = use default markup from settings

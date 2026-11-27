@@ -7,6 +7,7 @@
 
   const CATEGORIES = {
     necklace: "عقد",
+    chain: "سلسال",
     ring: "خاتم",
     set: "طقم",
     bracelet: "إسوارة",
