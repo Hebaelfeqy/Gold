@@ -68,7 +68,7 @@
       if (error) throw error;
     },
     async uploadPhoto(file) {
-      const blob = await compressImage(file);
+      const blob = DEMO ? await compressImage(file, 900, 0.72) : await compressImage(file);
       if (DEMO) return await blobToDataURL(blob);
       const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
       const { error } = await sb.storage.from("items").upload(path, blob, { contentType: "image/jpeg" });

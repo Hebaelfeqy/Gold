@@ -40,7 +40,6 @@
 
 <main class="wrap">
   <div class="grid" id="grid"></div>
-  <p style="text-align:center;padding-bottom:90px"><a href="admin.html" style="color:var(--muted);font-size:.85rem">دخول المسؤول</a></p>
 </main>
 
 <div class="sharebar" id="sharebar">
@@ -51,6 +50,7 @@
 
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
 
+<script>if (location.hash === "#admin") location.replace("admin.html");</script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/core.js"></script>
